@@ -52,7 +52,7 @@
              |_|
     ;
 
-    Method e. Failed under wps (peekclong)
+    Method e. and i.  failed under. No warning or error in log.
 
     see log on end.
 
