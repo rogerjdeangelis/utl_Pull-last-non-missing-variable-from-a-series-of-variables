@@ -1,12 +1,6 @@
 # utl_Pull-last-non-missing-variable-from-a-series-of-variables
-Pull last non missing variable from a series of variables
-
     Pull last non missing variable from a series of variables
     Edge cases not tested.
-
-    Paul pointed out issues with my original solution, so here are
-    same fixes.
-    Thanks, Paul
 
     github
     https://tinyurl.com/szs52fm
@@ -20,9 +14,12 @@ Pull last non missing variable from a series of variables
 
     Paul pointed out problems with my original solution
 
-            a. Pauls prefered solution with a minor enhancements
+            a. Pauls solution with a minor enhancement
                Paul Dorfman
                sashole@bellsouth.net
+               Also more robust solution by Mark Keintz in g.
+               Keintz, Mark
+               mkeintz@wharton.upenn.edu
 
             b. Fix original (not solution but related?)
 
@@ -35,6 +32,17 @@ Pull last non missing variable from a series of variables
             e. Peekclong
 
             f. Transpose (bonuus with name of last non missing variable
+
+            g. More robust solution by Mark, Handles more types of missings.
+               Keintz, Mark
+               mkeintz@wharton.upenn.edu
+
+            h. Salient comments by Paul Dorfam
+               Paul Dorfman
+               sashole@bellsouth.net
+
+            i. Transtrn instead og tranwrd to eliminate embeded blanks
+
 
     *
     __      ___ __  ___
@@ -190,6 +198,7 @@ Pull last non missing variable from a series of variables
 
     ;
 
+    %symdel names / nowarn;
     data want;
 
       if _n_=0 then do; %let rc=%sysfunc(dosubl('
@@ -326,5 +335,106 @@ Pull last non missing variable from a series of variables
     91      !     quit;
     92        quit; run;
     93        ODS _ALL_ CLOSE;
+
+    *          __  __            _                _               _
+      __ _    |  \/  | __ _ _ __| | __  _ __ ___ | |__  _   _ ___| |_
+     / _` |   | |\/| |/ _` | '__| |/ / | '__/ _ \| '_ \| | | / __| __|
+    | (_| |_  | |  | | (_| | |  |   <  | | | (_) | |_) | |_| \__ \ |_
+     \__, (_) |_|  |_|\__,_|_|  |_|\_\ |_|  \___/|_.__/ \__,_|___/\__|
+     |___/
+    ;
+
+    data have;
+      x1=1;
+      x2=2;
+      do x3=2,1.5,.,.A; output; end;
+    run;
+
+    Up to 40 obs WORK.HAVE total obs=4
+
+    Obs    X1    X2     X3
+
+     1      1     2    2.0
+     2      1     2    1.5
+     3      1     2     .
+     4      1     2     A
+
+
+    * handles multiple types of missings;
+    data want(keep=x1 x2 x3 last_non_missing);
+      set have;
+      last_non_missing=coalesce(x3,x2,x1);
+      scn=input (scan (catx (".", of x:), -1),?? f.) ;
+      put (x:) (=)  @19 last_non_missing=  @29 scn=;
+    run;
+
+    Up to 40 obs WORK.WANT total obs=4
+
+                              LAST_NON_
+    Obs    X1    X2     X3     MISSING
+
+     1      1     2    2.0       2.0
+     2      1     2    1.5       1.5
+     3      1     2     .        2.0
+     4      1     2     A        2.0
+
+    *_         ____             _                                            _
+    | |__     |  _ \ __ _ _   _| |   ___ ___  _ __ ___  _ __ ___   ___ _ __ | |_
+    | '_ \    | |_) / _` | | | | |  / __/ _ \| '_ ` _ \| '_ ` _ \ / _ \ '_ \| __|
+    | | | |_  |  __/ (_| | |_| | | | (_| (_) | | | | | | | | | | |  __/ | | | |_
+    |_| |_(_) |_|   \__,_|\__,_|_|  \___\___/|_| |_| |_|_| |_| |_|\___|_| |_|\__|
+
+    ;
+    Mark,
+
+    'Tis true. One thing I think the feline functions lack is a sensor that would listed
+    to which format to use for automatic num-2-char conversion. Suppose, for instance,
+     that there were a SAS option - let's call it provisionally CATFMT -
+    that could be set to a desired format. Then one could set it to CATFMT=HEX16 and code:
+
+      laststress = input (scan (catx (".", of stress:), -1), hex16.) ;
+
+    since the HEX16. format renders the standard missing value as a period. As I've said, I
+    prefer your solution, especially since it handles special missing
+    values to boot (the one above wouldn't).
+
+    Back to the issue of feline auto-format choice, having it would be good in a
+    number of aspects. For example, when a CAT is done for the sole purpose of
+    MD5-ing a composite mixed-type key, using RB8 would be better than W.
+    since it's much faster and always exactly precise. A couple of year ago at the SGF I
+    asked Rick Langston (Don H. can testify as a witness) if the functionality could be added,
+    and the answer was "sure". Too bad Rick retired soon thereafter.
+
+
+    *_     _                       _
+    (_)   | |_ _ __ __ _ _ __  ___| |_ _ __
+    | |   | __| '__/ _` | '_ \/ __| __| '_ \
+    | |_  | |_| | | (_| | | | \__ \ |_| | | |
+    |_(_)  \__|_|  \__,_|_| |_|___/\__|_| |_|
+
+    ;
+    data have ;
+      input id stress1 stress5 stress10 stress15 stress20 ;
+      cards ;
+    1  10   8  .  3   .
+    2   3   02  .  .   .
+    3  15   .  .  .  10
+    ;
+    run ;
+
+    data want;
+     set have;
+     array nums[*] str:;
+     lastNonMissing=.;
+     chrBin=peekclong(addrlong(nums[1]),dim(nums)*8);
+     chrBin=transtrn(chrBin,put(.,rb8.),trimn(''));        /* improvement */
+     call pokelong(substr(chrBin,lengthn(chrBin)-7,8),addrlong(lastNonMissing));
+     drop chrBin;
+    run;quit;
+
+
+
+
+
 
 
