@@ -1,11 +1,11 @@
 Pull last non missing variable from a series of variables
 Edge cases not tested.
 
-Paul pointed out issues with my original solution, so here are
-same fixes.
-Thanks, Paul
+github
+https://tinyurl.com/szs52fm
+https://github.com/rogerjdeangelis/utl_Pull-last-non-missing-variable-from-a-series-of-variables
 
-Note I run using a Win 7 on a power workstation so mileage may vary in the other 6 enhanced SAS platforms.
+Note: I run using a Win 7 on a power workstation so mileage may vary in the other 5 enhanced editors.
 
 SAS Forum
 https://tinyurl.com/sbbvpa2
@@ -13,9 +13,12 @@ https://communities.sas.com/t5/SAS-Data-Management/How-to-pull-last-non-missing-
 
 Paul pointed out problems with my original solution
 
-        a. Pauls prefered solution with a minor enhancements
+        a. Pauls solution with a minor enhancement
            Paul Dorfman
            sashole@bellsouth.net
+           Also more robust solution by Mark Keintz in g.
+           Keintz, Mark
+           mkeintz@wharton.upenn.edu
 
         b. Fix original (not solution but related?)
 
@@ -28,6 +31,17 @@ Paul pointed out problems with my original solution
         e. Peekclong
 
         f. Transpose (bonuus with name of last non missing variable
+
+        g. More robust solution by Mark, Handles more types of missings.
+           Keintz, Mark
+           mkeintz@wharton.upenn.edu
+
+        h. Salient comments by Paul Dorfam
+           Paul Dorfman
+           sashole@bellsouth.net
+
+        i. Transtrn instead og tranwrd to eliminate embeded blanks
+
 
 *
 __      ___ __  ___
@@ -183,6 +197,7 @@ run;quit;
 
 ;
 
+%symdel names / nowarn;
 data want;
 
   if _n_=0 then do; %let rc=%sysfunc(dosubl('
@@ -270,6 +285,152 @@ Obs    ID    STRESS1    STRESS5    STRESS10    STRESS15    STRESS20    STRS     
  1      1       10         8           .           3           .        3      STRESS15       3
  2      2        3         2           .           .           .        2      STRESS5        2
  3      3       15         .           .           .          10        10     STRESS20      10
+
+*                     _
+__      ___ __  ___  | | ___   __ _
+\ \ /\ / / '_ \/ __| | |/ _ \ / _` |
+ \ V  V /| |_) \__ \ | | (_) | (_| |
+  \_/\_/ | .__/|___/ |_|\___/ \__, |
+         |_|                  |___/
+;
+
+
+NOTE: Data set "WORK.have" has 3 observation(s) and 7 variable(s)
+NOTE: The data step took :
+      real time : 0.012
+      cpu time  : 0.015
+
+
+73        1  10   8  .  3   .
+74        2   3   2  .  .   .
+75        3  15   .  .  .  10
+76        ;
+77        run ;
+78
+79        data want;
+80
+81          set have;
+82          array bac stress:;
+83          addr=addrlong(bac[1]);
+84          vars=peekclong(addrlong(bac[1]),8*dim(bac));
+85          vrs=tranwrd(vars,put(.,rb8.),'');
+86          l=length(vrs);
+87          lst=substr(vrs,l-7);
+88          stres=input(lst,rb8.);
+89          put stres=;
+90          keep id str:;
+91        run;
+
+stres=3
+stres=.
+stres=10
+NOTE: 3 observations were read from "WORK.have"
+NOTE: Data set "WORK.want" has 3 observation(s) and 8 variable(s)
+NOTE: The data step took :
+      real time : 0.013
+      cpu time  : 0.015
+
+
+91      !     quit;
+92        quit; run;
+93        ODS _ALL_ CLOSE;
+
+*          __  __            _                _               _
+  __ _    |  \/  | __ _ _ __| | __  _ __ ___ | |__  _   _ ___| |_
+ / _` |   | |\/| |/ _` | '__| |/ / | '__/ _ \| '_ \| | | / __| __|
+| (_| |_  | |  | | (_| | |  |   <  | | | (_) | |_) | |_| \__ \ |_
+ \__, (_) |_|  |_|\__,_|_|  |_|\_\ |_|  \___/|_.__/ \__,_|___/\__|
+ |___/
+;
+
+data have;
+  x1=1;
+  x2=2;
+  do x3=2,1.5,.,.A; output; end;
+run;
+
+Up to 40 obs WORK.HAVE total obs=4
+
+Obs    X1    X2     X3
+
+ 1      1     2    2.0
+ 2      1     2    1.5
+ 3      1     2     .
+ 4      1     2     A
+
+
+* handles multiple types of missings;
+data want(keep=x1 x2 x3 last_non_missing);
+  set have;
+  last_non_missing=coalesce(x3,x2,x1);
+  scn=input (scan (catx (".", of x:), -1),?? f.) ;
+  put (x:) (=)  @19 last_non_missing=  @29 scn=;
+run;
+
+Up to 40 obs WORK.WANT total obs=4
+
+                          LAST_NON_
+Obs    X1    X2     X3     MISSING
+
+ 1      1     2    2.0       2.0
+ 2      1     2    1.5       1.5
+ 3      1     2     .        2.0
+ 4      1     2     A        2.0
+
+*_         ____             _                                            _
+| |__     |  _ \ __ _ _   _| |   ___ ___  _ __ ___  _ __ ___   ___ _ __ | |_
+| '_ \    | |_) / _` | | | | |  / __/ _ \| '_ ` _ \| '_ ` _ \ / _ \ '_ \| __|
+| | | |_  |  __/ (_| | |_| | | | (_| (_) | | | | | | | | | | |  __/ | | | |_
+|_| |_(_) |_|   \__,_|\__,_|_|  \___\___/|_| |_| |_|_| |_| |_|\___|_| |_|\__|
+
+;
+Mark,
+
+'Tis true. One thing I think the feline functions lack is a sensor that would listed
+to which format to use for automatic num-2-char conversion. Suppose, for instance,
+ that there were a SAS option - let's call it provisionally CATFMT -
+that could be set to a desired format. Then one could set it to CATFMT=HEX16 and code:
+
+  laststress = input (scan (catx (".", of stress:), -1), hex16.) ;
+
+since the HEX16. format renders the standard missing value as a period. As I've said, I
+prefer your solution, especially since it handles special missing
+values to boot (the one above wouldn't).
+
+Back to the issue of feline auto-format choice, having it would be good in a
+number of aspects. For example, when a CAT is done for the sole purpose of
+MD5-ing a composite mixed-type key, using RB8 would be better than W.
+since it's much faster and always exactly precise. A couple of year ago at the SGF I
+asked Rick Langston (Don H. can testify as a witness) if the functionality could be added,
+and the answer was "sure". Too bad Rick retired soon thereafter.
+
+
+*_     _                       _
+(_)   | |_ _ __ __ _ _ __  ___| |_ _ __
+| |   | __| '__/ _` | '_ \/ __| __| '_ \
+| |_  | |_| | | (_| | | | \__ \ |_| | | |
+|_(_)  \__|_|  \__,_|_| |_|___/\__|_| |_|
+
+;
+data have ;
+  input id stress1 stress5 stress10 stress15 stress20 ;
+  cards ;
+1  10   8  .  3   .
+2   3   02  .  .   .
+3  15   .  .  .  10
+;
+run ;
+
+data want;
+ set have;
+ array nums[*] str:;
+ lastNonMissing=.;
+ chrBin=peekclong(addrlong(nums[1]),dim(nums)*8);
+ chrBin=transtrn(chrBin,put(.,rb8.),trimn(''));        /* improvement */
+ call pokelong(substr(chrBin,lengthn(chrBin)-7,8),addrlong(lastNonMissing));
+ drop chrBin;
+run;quit;
+
 
 
 
